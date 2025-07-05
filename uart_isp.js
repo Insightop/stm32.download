@@ -222,7 +222,7 @@ export default class UARTISP {
   }
 
   // 获取芯片ID，支持多次尝试
-  async getChipId(maxRetries = 5) {
+  async getChipId(maxRetries = 10) {
     console.log(`获取芯片ID，最多尝试 ${maxRetries} 次...`);
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {

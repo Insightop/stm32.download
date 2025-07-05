@@ -174,7 +174,7 @@ btnBurn.onclick = async () => {
     await uartisp.handshake();
     if (isCancelRequested) throw new Error("已取消");
     log("🤝 握手成功，获取芯片ID...");
-    const id = await uartisp.getChipId();
+    const id = await uartisp.getChipId(10);
     if (isCancelRequested) throw new Error("已取消");
     log(
       "🆔 芯片ID: " +
