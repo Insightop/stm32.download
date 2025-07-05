@@ -30,6 +30,7 @@ export default class UARTISP {
     this.reader = null;
     this.writer = null;
     this.readBuffer = new Uint8Array(0);
+    this.abortController = null;
   }
 
   async open(port) {
@@ -71,60 +72,82 @@ export default class UARTISP {
     await this.writer.write(bytes);
   }
 
-  // 读取单个字节，带超时
-  async readByte(timeoutMs = 1000) {
+  // 读取单个字节，带超时和中断支持
+  async readByte(timeoutMs = 1000, signal = null) {
     const startTime = Date.now();
 
     while (this.readBuffer.length === 0) {
-      const elapsed = Date.now() - startTime;
-      if (elapsed > timeoutMs) {
-        throw new Error(`读取超时 (${timeoutMs}ms)`);
+      if (signal && signal.aborted) {
+        throw new Error("操作被用户取消");
       }
-
       // 检查reader状态
       if (!this.reader) {
         throw new Error("读取器未初始化或已关闭");
       }
-
       try {
-        const { value, done } = await this.reader.read();
+        // 用Promise.race实现超时
+        const readPromise = this.reader.read();
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => {
+            // 不再cancel reader，避免破坏串口流
+            reject(new Error(`读取超时 (${timeoutMs}ms)`));
+          }, timeoutMs)
+        );
+        let result;
+        if (signal) {
+          result = await Promise.race([
+            readPromise,
+            timeoutPromise,
+            new Promise((_, reject) => {
+              signal.addEventListener(
+                "abort",
+                () => reject(new Error("操作被用户取消")),
+                { once: true }
+              );
+            }),
+          ]);
+        } else {
+          result = await Promise.race([readPromise, timeoutPromise]);
+        }
+        const { value, done } = result;
         if (done) {
           throw new Error("串口连接已断开");
         }
-
         // 将新数据追加到缓冲区
         const newBuffer = new Uint8Array(this.readBuffer.length + value.length);
         newBuffer.set(this.readBuffer);
         newBuffer.set(value, this.readBuffer.length);
         this.readBuffer = newBuffer;
       } catch (error) {
-        if (error.message.includes("断开")) {
+        if (
+          error.message.includes("断开") ||
+          error.message === "操作被用户取消"
+        ) {
           throw error;
         }
         // 其他读取错误，稍等后重试
         await new Promise((resolve) => setTimeout(resolve, 10));
       }
     }
-
     // 从缓冲区取出一个字节
     const byte = this.readBuffer[0];
     this.readBuffer = this.readBuffer.slice(1);
     return byte;
   }
 
-  // 读取指定数量的字节
-  async readBytes(count, timeoutMs = 1000) {
+  // 读取指定数量的字节，支持signal
+  async readBytes(count, timeoutMs = 1000, signal = null) {
     const result = new Uint8Array(count);
     for (let i = 0; i < count; i++) {
-      result[i] = await this.readByte(timeoutMs);
+      result[i] = await this.readByte(timeoutMs, signal);
     }
     return result;
   }
 
-  // 等待握手响应 (ACK或NACK都算成功)
-  async waitForHandshakeResponse(timeoutMs = 1000) {
+  // 等待握手响应 (ACK或NACK都算成功)，支持signal
+  async waitForHandshakeResponse(timeoutMs = 1000, signal = null) {
     try {
-      const response = await this.readByte(timeoutMs);
+      const response = await this.readByte(timeoutMs, signal);
       if (response === ACK) {
         console.log("收到ACK响应，握手成功");
         return true;
@@ -132,7 +155,6 @@ export default class UARTISP {
         console.log("收到NACK响应，设备可能已在ISP模式，握手成功");
         return true;
       } else {
-        // 提供更详细的错误信息
         const char =
           response >= 32 && response <= 126
             ? ` ('${String.fromCharCode(response)}')`
@@ -153,9 +175,9 @@ export default class UARTISP {
     }
   }
 
-  // 等待ACK响应
-  async waitForAck(timeoutMs = 1000) {
-    const response = await this.readByte(timeoutMs);
+  // 等待ACK响应，支持signal
+  async waitForAck(timeoutMs = 1000, signal = null) {
+    const response = await this.readByte(timeoutMs, signal);
     if (response === ACK) {
       return true;
     } else if (response === NACK) {
@@ -175,91 +197,97 @@ export default class UARTISP {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 
-  // ISP握手，支持多次尝试
+  // 新增：外部调用终止当前操作
+  abort() {
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+  }
+
+  // ISP握手，支持多次尝试和中断
   async handshake(maxRetries = 10) {
     console.log(`开始ISP握手，最多尝试 ${maxRetries} 次...`);
-
+    this.abortController = new AbortController();
+    const signal = this.abortController.signal;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`握手尝试 ${attempt}/${maxRetries}`);
-
-        // 检查串口和writer状态
         if (!this.port || !this.writer || !this.reader) {
           throw new Error("串口未正确初始化");
         }
-
-        // 清理串口缓冲区
         await this.clearSerialBuffer();
-
-        // 发送同步字节
         console.log(`发送同步字节: 0x${SYNC_BYTE.toString(16).toUpperCase()}`);
         await this.sendByte(SYNC_BYTE);
         console.log("同步字节已发送，等待设备响应...");
-
-        // 等待握手响应
-        await this.waitForHandshakeResponse(1000);
+        await this.waitForHandshakeResponse(1000, signal);
         console.log(`握手成功 (尝试 ${attempt}/${maxRetries})`);
+        this.abortController = null;
         return;
       } catch (error) {
+        if (error.message === "操作被用户取消") {
+          this.abortController = null;
+          throw error;
+        }
         console.log(`握手尝试 ${attempt} 失败: ${error.message}`);
         if (attempt === maxRetries) {
+          this.abortController = null;
           throw new Error(
             `握手失败，已尝试 ${maxRetries} 次: ${error.message}`
           );
         }
-
-        // 检查是否是严重错误（如串口断开）
+        // 遇到串口断开或null也继续重试，只有最后一次才终止
         if (error.message.includes("断开") || error.message.includes("null")) {
-          // 严重错误，不再重试
-          throw new Error(`严重错误，停止重试: ${error.message}`);
+          console.log(`串口断开，等待500ms后重试...`);
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          continue;
         }
-
-        // 重试前等待更长时间，并多清理一次
         console.log(`等待 ${500} ms 后重试...`);
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }
+    this.abortController = null;
   }
 
-  // 获取芯片ID，支持多次尝试
+  // 获取芯片ID，支持多次尝试和中断
   async getChipId(maxRetries = 10) {
     console.log(`获取芯片ID，最多尝试 ${maxRetries} 次...`);
-
+    this.abortController = new AbortController();
+    const signal = this.abortController.signal;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`获取ID尝试 ${attempt}/${maxRetries}`);
-
-        // 发送GET_ID命令
+        // 每次尝试前清理串口缓冲区并延时，提升兼容性
+        await this.clearSerialBuffer();
+        await new Promise((resolve) => setTimeout(resolve, 100));
         await this.sendByte(STM32_COMMANDS.GET_ID);
-        await this.sendByte(STM32_COMMANDS.GET_ID ^ 0xff); // XOR校验
-
-        // 等待ACK (使用较短超时时间)
-        await this.waitForAck(1000);
-
-        // 读取数据长度
-        const length = await this.readByte(1000);
+        await this.sendByte(STM32_COMMANDS.GET_ID ^ 0xff);
+        await this.waitForAck(1000, signal);
+        const length = await this.readByte(1000, signal);
         console.log(`ID数据长度: ${length + 1} 字节`);
-
-        // 读取芯片ID数据
-        const idData = await this.readBytes(length + 1, 1000);
-
-        // 等待最终ACK
-        await this.waitForAck(1000);
-
+        const idData = await this.readBytes(length + 1, 1000, signal);
+        await this.waitForAck(1000, signal);
         console.log(`芯片ID获取成功 (尝试 ${attempt}/${maxRetries})`);
+        this.abortController = null;
         return idData;
       } catch (error) {
+        if (error.message === "操作被用户取消") {
+          this.abortController = null;
+          throw error;
+        }
         console.log(`获取ID尝试 ${attempt} 失败: ${error.message}`);
         if (attempt === maxRetries) {
+          this.abortController = null;
           throw new Error(
             `获取芯片ID失败，已尝试 ${maxRetries} 次: ${error.message}`
           );
         }
-
-        // 等待一段时间后重试
+        // NACK、串口断开等都自动重试，只有最后一次才报错
         await new Promise((resolve) => setTimeout(resolve, 300));
+        continue;
       }
     }
+    this.abortController = null;
   }
 
   // 全擦除Flash
