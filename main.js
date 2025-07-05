@@ -1,14 +1,14 @@
 import UARTISP, { hexToBin } from "./uart_isp.js";
 // import USBDFU from "./usb_dfu.js";
-// import STLink from "./stlink.js";
+import STLink from "./stlink.js";
 
-// Web Serial API 支持性检查
-if (!("serial" in navigator)) {
-  alert(
-    "暂不支持当前浏览器，请使用 Chrome、Microsoft Edge、Arc 等基于 Chromium 的浏览器。"
-  );
-  throw new Error("Web Serial API not supported");
-}
+// // Web Serial API 支持性检查
+// if (!("serial" in navigator)) {
+//   alert(
+//     "暂不支持当前浏览器，请使用 Chrome、Microsoft Edge、Arc 等基于 Chromium 的浏览器。"
+//   );
+//   throw new Error("Web Serial API not supported");
+// }
 
 let port = null;
 let uartisp = null;
@@ -31,6 +31,11 @@ const eta = document.getElementById("eta");
 const etaText = document.getElementById("eta-text");
 const baudrateSelect = document.getElementById("baudrate");
 const progressBarContainer = document.getElementById("progress-bar-container");
+
+// 模式切换显示不同选项
+const modeRadios = document.querySelectorAll('input[name="mode"]');
+const baudrateContainer = document.getElementById("baudrate-container");
+const stlinkrateContainer = document.getElementById("stlinkrate-container");
 
 function log(msg) {
   logEl.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
@@ -68,18 +73,12 @@ function updateBurnBtnState() {
   }
 }
 
-// 页面初始隐藏烧录按钮和进度条
-btnBurn.style.display = "none";
-progressBarContainer.style.display = "none";
-
 firmwareInput.onchange = async (e) => {
   resetProgress();
   const file = e.target.files[0];
   if (!file) {
     firmwareBuffer = null;
     fileInfo.textContent = "";
-    btnBurn.style.display = "none";
-    progressBarContainer.style.display = "none";
     updateBurnBtnState();
     return;
   }
@@ -89,8 +88,6 @@ firmwareInput.onchange = async (e) => {
       ? (file.size / 1024 / 1024).toFixed(2) + " MB"
       : (file.size / 1024).toFixed(2) + " KB";
   fileInfo.textContent = `${file.name} (${sizeStr})`;
-  btnBurn.style.display = "block";
-  progressBarContainer.style.display = "none";
   const ext = file.name.split(".").pop().toLowerCase();
   try {
     if (ext === "hex") {
@@ -127,6 +124,8 @@ btnBurn.classList.remove("bg-blue-600");
 
 btnBurn.onclick = async () => {
   const icon = document.getElementById("btn-burn-icon");
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+  console.log("当前模式:", mode);
   if (isBurning) {
     if (!confirm("是否真的要终止下载？")) return;
     isCancelRequested = true;
@@ -135,6 +134,68 @@ btnBurn.onclick = async () => {
     return;
   }
   if (!firmwareBuffer) return;
+  // 新增：根据模式分支
+  if (mode === "STLINK") {
+    try {
+      console.log("即将调用navigator.usb.requestDevice");
+      log("🔌 正在连接STLINK设备...");
+      const stlink = new STLink();
+      await stlink.connect();
+      log("✅ STLINK已连接: " + stlink.device.productName);
+      log("📝 开始通过STLINK写入固件...");
+      progressBarContainer.style.display = "block";
+      setProgress(0);
+      const stlinkrate =
+        parseInt(document.getElementById("stlinkrate").value, 10) || 1800000;
+      await stlink.downloadBin(
+        firmwareBuffer,
+        firmwareBaseAddr,
+        (written, total) => {
+          setProgress(Math.floor((written / total) * 100));
+          const now = Date.now();
+          if (written === total) {
+            etaText.textContent = "00:00";
+          }
+        },
+        stlinkrate
+      );
+      setProgress(100);
+      log("🎉 STLINK固件烧录完成！");
+      await stlink.disconnect();
+      log("⛓️‍💥 STLINK已断开");
+    } catch (e) {
+      log("❌ STLINK烧录失败: " + e.message);
+    }
+    isBurning = false;
+    isCancelRequested = false;
+    etaText.textContent = "";
+    if (eta) eta.style.visibility = "hidden";
+    baudrateSelect.disabled = false;
+    baudrateSelect.classList.remove("opacity-50", "cursor-not-allowed");
+    firmwareInput.disabled = false;
+    document
+      .getElementById("custom-file-btn")
+      .classList.remove("opacity-50", "cursor-not-allowed");
+    progressBarContainer.style.display = "none";
+    updateBurnBtnState();
+    return;
+  }
+  if (mode === "UART") {
+    try {
+      console.log("即将调用navigator.serial.requestPort");
+      if (navigator.serial && navigator.serial.requestPort) {
+        port = await navigator.serial.requestPort();
+        log("✅ 串口已选择");
+        // 这里可以继续你的串口通信逻辑...
+      } else {
+        log("❌ 当前浏览器不支持Web Serial API");
+      }
+    } catch (e) {
+      console.error("UART分支异常:", e);
+      log("❌ 串口连接失败: " + e.message);
+    }
+    return;
+  }
   isBurning = true;
   isCancelRequested = false;
   burnStartTime = 0;
@@ -264,3 +325,20 @@ btnBurn.onclick = async () => {
 
 // 保证页面加载时按钮状态正确
 updateBurnBtnState();
+
+function updateModeOptions() {
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+  if (mode === "UART") {
+    baudrateContainer.style.display = "";
+    stlinkrateContainer.style.display = "none";
+  } else if (mode === "USB") {
+    baudrateContainer.style.display = "none";
+    stlinkrateContainer.style.display = "none";
+  } else if (mode === "STLINK") {
+    baudrateContainer.style.display = "none";
+    stlinkrateContainer.style.display = "";
+  }
+}
+modeRadios.forEach((r) => r.addEventListener("change", updateModeOptions));
+// 页面加载时初始化
+updateModeOptions();

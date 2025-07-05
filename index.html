@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>STM32 Download - UART ISP 模式</title>
+    <title>STM32 Download</title>
     <!-- 使用 Tailwind 官方推荐的 Play CDN 方式加载样式 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome 图标库 -->
@@ -22,7 +22,6 @@
     class="bg-gradient-to-br from-blue-100 to-green-100 min-h-screen w-screen h-screen flex items-center justify-center">
     <div class="w-full max-w-md mx-auto my-auto bg-white rounded-2xl shadow-2xl p-8 border border-gray-200">
         <h2 class="text-3xl font-extrabold text-center mb-8 text-blue-700 tracking-wide">STM32 Download</h2>
-        <h3 class="text-center text-gray-600 mb-6">UART ISP Mode</h3>
         <div class="mb-6 flex flex-col gap-2">
             <div class="flex items-center gap-3">
                 <label class="flex-1">
@@ -38,30 +37,66 @@
                 <span id="file-info" class="text-xs text-gray-600"></span>
                 <span class="text-xs text-gray-500 text-right">*.hex, *.bin</span>
             </div>
+            <!-- 模式选择控件 -->
+            <div class="flex flex-row justify-between items-center w-full mt-2 mb-2">
+                <label class="flex-1">
+                    <input type="radio" name="mode" value="UART" class="peer hidden" checked />
+                    <span
+                        class="block cursor-pointer select-none text-center py-2 rounded-l-lg border border-gray-300 bg-gray-50 text-blue-700 font-semibold peer-checked:bg-blue-500 peer-checked:text-white transition-colors">UART</span>
+                </label>
+                <label class="flex-1">
+                    <input type="radio" name="mode" value="USB" class="peer hidden" />
+                    <span
+                        class="block cursor-pointer select-none text-center py-2 border-t border-b border-gray-300 bg-gray-50 text-blue-700 font-semibold peer-checked:bg-blue-500 peer-checked:text-white transition-colors">USB</span>
+                </label>
+                <label class="flex-1">
+                    <input type="radio" name="mode" value="STLINK" class="peer hidden" />
+                    <span
+                        class="block cursor-pointer select-none text-center py-2 rounded-r-lg border border-gray-300 bg-gray-50 text-blue-700 font-semibold peer-checked:bg-blue-500 peer-checked:text-white transition-colors">STLINK</span>
+                </label>
+            </div>
         </div>
-        <div class="mb-6">
+        <div class="mb-6" id="baudrate-container">
             <select id="baudrate"
                 class="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 mb-1">
-                <option value="115200">115200</option>
-                <option value="57600">57600</option>
-                <option value="38400">38400</option>
-                <option value="19200">19200</option>
-                <option value="9600">9600</option>
-                <option value="4800">4800</option>
+                <option value="115200">115200 bps</option>
+                <option value="57600">57600 bps</option>
+                <option value="38400">38400 bps</option>
+                <option value="19200">19200 bps</option>
+                <option value="9600">9600 bps</option>
+                <option value="4800">4800 bps</option>
             </select>
             <div class="flex flex-row justify-between text-xs text-gray-500 px-1">
                 <span>波特率</span>
-                <span>bps</span>
+            </div>
+        </div>
+        <!-- STLINK速率选择，初始隐藏 -->
+        <div class="mb-6" id="stlinkrate-container" style="display:none;">
+            <select id="stlinkrate"
+                class="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 mb-1">
+                <option value="4000000">4.0 MHz</option>
+                <option value="1800000">1.8 MHz</option>
+                <option value="950000">950 kHz</option>
+                <option value="480000">480 kHz</option>
+                <option value="240000">240 kHz</option>
+                <option value="125000">125 kHz</option>
+                <option value="100000">100 kHz</option>
+                <option value="50000">50 kHz</option>
+                <option value="25000">25 kHz</option>
+                <option value="15000">15 kHz</option>
+                <option value="5000">5 kHz</option>
+            </select>
+            <div class="flex flex-row justify-between text-xs text-gray-500 px-1">
+                <span>SWCLK</span>
             </div>
         </div>
         <button id="btn-burn"
-            class="w-full py-2 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold mb-6 transition-colors shadow flex items-center justify-center gap-2"
-            style="display:none;">
+            class="w-full py-2 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold mb-6 transition-colors shadow flex items-center justify-center gap-2">
             <i id="btn-burn-icon" class="fa-solid fa-bolt mr-1"></i>
             <span id="btn-burn-text">下载固件</span>
         </button>
         <div class="w-full h-4 bg-gray-200 rounded-lg mb-6 overflow-hidden shadow-inner relative"
-            id="progress-bar-container" style="display:none;">
+            id="progress-bar-container">
             <div class="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all duration-200"
                 id="progress-inner" style="width:0%"></div>
             <span id="eta"
