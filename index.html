@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>STM32 Download - UART ISP 模式</title>
+    <!-- 使用 Tailwind 官方推荐的 Play CDN 方式加载样式 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <style>
+        /* 禁用时不响应hover/active */
+        #custom-file-btn.opacity-50.cursor-not-allowed:hover,
+        #custom-file-btn.opacity-50.cursor-not-allowed:active {
+            background: #f1f5f9 !important;
+            color: #60a5fa !important;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-gradient-to-br from-blue-100 to-green-100 min-h-screen w-screen h-screen flex items-center justify-center">
+    <div class="w-full max-w-md mx-auto my-auto bg-white rounded-2xl shadow-2xl p-8 border border-gray-200">
+        <h2 class="text-3xl font-extrabold text-center mb-8 text-blue-700 tracking-wide">STM32 Download</h2>
+        <h3 class="text-center text-gray-600 mb-6">UART ISP Mode</h3>
+        <div class="mb-6 flex flex-col gap-2">
+            <div class="flex items-center gap-3">
+                <label class="flex-1">
+                    <input type="file" id="firmware" accept=".hex,.bin" class="hidden" />
+                    <span id="custom-file-btn"
+                        class="inline-flex items-center justify-center w-full p-2 rounded-lg border border-gray-300 bg-gray-50 text-center cursor-pointer hover:bg-blue-50 text-blue-700 font-semibold gap-2">
+                        <i class="fa-solid fa-file-arrow-up"></i>
+                        选择固件
+                    </span>
+                </label>
+                <span id="file-info" class="text-xs text-gray-600 flex-shrink-0"></span>
+            </div>
+            <span class="text-xs text-gray-500">*.hex, *.bin</span>
+        </div>
+        <div class="mb-6">
+            <label for="baudrate" class="block mb-2 text-gray-700 font-medium">波特率</label>
+            <select id="baudrate"
+                class="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 mb-4">
+                <option value="115200">115200</option>
+                <option value="57600">57600</option>
+                <option value="38400">38400</option>
+                <option value="19200">19200</option>
+                <option value="9600">9600</option>
+                <option value="4800">4800</option>
+            </select>
+        </div>
+        <button id="btn-burn"
+            class="w-full py-2 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold mb-6 transition-colors shadow flex items-center justify-center gap-2">
+            <i class="fa-solid fa-bolt mr-1"></i>
+            <span id="btn-burn-text">烧录固件</span>
+        </button>
+        <div class="w-full h-4 bg-gray-200 rounded-lg mb-6 overflow-hidden shadow-inner relative">
+            <div class="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all duration-200"
+                id="progress-inner" style="width:0%"></div>
+            <span id="eta"
+                class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-xs text-gray-700 font-semibold select-none flex items-center gap-1"
+                style="visibility:hidden"><i class="fa-solid fa-stopwatch"></i><span id="eta-text"></span></span>
+        </div>
+        <div class="log font-mono text-xs bg-gray-900 text-green-200 rounded-lg p-4 h-36 overflow-y-auto whitespace-pre-wrap border border-gray-800 shadow-inner"
+            id="log"></div>
+    </div>
+    <script type="module" src="./main.js"></script>
+</body>
+
+</html>
