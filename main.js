@@ -126,7 +126,9 @@ btnBurn.classList.add("bg-blue-300", "cursor-not-allowed");
 btnBurn.classList.remove("bg-blue-600");
 
 btnBurn.onclick = async () => {
+  const icon = document.getElementById("btn-burn-icon");
   if (isBurning) {
+    if (!confirm("是否真的要终止下载？")) return;
     isCancelRequested = true;
     log("⏹️ 用户请求取消下载...");
     setProgress(0);
@@ -153,7 +155,10 @@ btnBurn.onclick = async () => {
       "active:bg-blue-800"
     );
     btnBurn.classList.add("bg-red-600");
-    document.getElementById("btn-burn-text").textContent = "取消下载";
+    document.getElementById("btn-burn-text").textContent = "终止";
+    if (icon) {
+      icon.className = "fa-solid fa-stop mr-1";
+    }
     btnBurn.disabled = false;
     port = await navigator.serial.requestPort();
     // 选择串口后显示进度条
@@ -218,7 +223,10 @@ btnBurn.onclick = async () => {
       "hover:bg-blue-700",
       "active:bg-blue-800"
     );
-    document.getElementById("btn-burn-text").textContent = "烧录固件";
+    document.getElementById("btn-burn-text").textContent = "下载固件";
+    if (icon) {
+      icon.className = "fa-solid fa-bolt mr-1";
+    }
     updateBurnBtnState();
   } catch (e) {
     etaText.textContent = "";
@@ -235,7 +243,10 @@ btnBurn.onclick = async () => {
       "hover:bg-blue-700",
       "active:bg-blue-800"
     );
-    document.getElementById("btn-burn-text").textContent = "烧录固件";
+    document.getElementById("btn-burn-text").textContent = "下载固件";
+    if (icon) {
+      icon.className = "fa-solid fa-bolt mr-1";
+    }
     updateBurnBtnState();
   }
   isBurning = false;

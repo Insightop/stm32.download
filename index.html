@@ -40,9 +40,8 @@
             </div>
         </div>
         <div class="mb-6">
-            <label for="baudrate" class="block mb-2 text-gray-700 font-medium">波特率</label>
             <select id="baudrate"
-                class="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 mb-4">
+                class="w-full p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 mb-1">
                 <option value="115200">115200</option>
                 <option value="57600">57600</option>
                 <option value="38400">38400</option>
@@ -50,12 +49,16 @@
                 <option value="9600">9600</option>
                 <option value="4800">4800</option>
             </select>
+            <div class="flex flex-row justify-between text-xs text-gray-500 px-1">
+                <span>波特率</span>
+                <span>bps</span>
+            </div>
         </div>
         <button id="btn-burn"
             class="w-full py-2 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold mb-6 transition-colors shadow flex items-center justify-center gap-2"
             style="display:none;">
-            <i class="fa-solid fa-bolt mr-1"></i>
-            <span id="btn-burn-text">烧录固件</span>
+            <i id="btn-burn-icon" class="fa-solid fa-bolt mr-1"></i>
+            <span id="btn-burn-text">下载固件</span>
         </button>
         <div class="w-full h-4 bg-gray-200 rounded-lg mb-6 overflow-hidden shadow-inner relative"
             id="progress-bar-container" style="display:none;">
