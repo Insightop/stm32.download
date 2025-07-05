@@ -33,9 +33,11 @@
                         选择固件
                     </span>
                 </label>
-                <span id="file-info" class="text-xs text-gray-600 flex-shrink-0"></span>
             </div>
-            <span class="text-xs text-gray-500">*.hex, *.bin</span>
+            <div class="flex flex-row justify-between items-center w-full">
+                <span id="file-info" class="text-xs text-gray-600"></span>
+                <span class="text-xs text-gray-500 text-right">*.hex, *.bin</span>
+            </div>
         </div>
         <div class="mb-6">
             <label for="baudrate" class="block mb-2 text-gray-700 font-medium">波特率</label>
@@ -50,11 +52,13 @@
             </select>
         </div>
         <button id="btn-burn"
-            class="w-full py-2 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold mb-6 transition-colors shadow flex items-center justify-center gap-2">
+            class="w-full py-2 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold mb-6 transition-colors shadow flex items-center justify-center gap-2"
+            style="display:none;">
             <i class="fa-solid fa-bolt mr-1"></i>
             <span id="btn-burn-text">烧录固件</span>
         </button>
-        <div class="w-full h-4 bg-gray-200 rounded-lg mb-6 overflow-hidden shadow-inner relative">
+        <div class="w-full h-4 bg-gray-200 rounded-lg mb-6 overflow-hidden shadow-inner relative"
+            id="progress-bar-container" style="display:none;">
             <div class="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all duration-200"
                 id="progress-inner" style="width:0%"></div>
             <span id="eta"

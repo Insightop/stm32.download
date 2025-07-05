@@ -1,4 +1,6 @@
-import UARTISP, { hexToBin } from "./uartisp.js";
+import UARTISP, { hexToBin } from "./uart_isp.js";
+// import USBDFU from "./usb_dfu.js";
+// import STLink from "./stlink.js";
 
 // Web Serial API 支持性检查
 if (!("serial" in navigator)) {
@@ -28,6 +30,7 @@ const fileInfo = document.getElementById("file-info");
 const eta = document.getElementById("eta");
 const etaText = document.getElementById("eta-text");
 const baudrateSelect = document.getElementById("baudrate");
+const progressBarContainer = document.getElementById("progress-bar-container");
 
 function log(msg) {
   logEl.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
@@ -65,12 +68,18 @@ function updateBurnBtnState() {
   }
 }
 
+// 页面初始隐藏烧录按钮和进度条
+btnBurn.style.display = "none";
+progressBarContainer.style.display = "none";
+
 firmwareInput.onchange = async (e) => {
   resetProgress();
   const file = e.target.files[0];
   if (!file) {
     firmwareBuffer = null;
     fileInfo.textContent = "";
+    btnBurn.style.display = "none";
+    progressBarContainer.style.display = "none";
     updateBurnBtnState();
     return;
   }
@@ -80,6 +89,8 @@ firmwareInput.onchange = async (e) => {
       ? (file.size / 1024 / 1024).toFixed(2) + " MB"
       : (file.size / 1024).toFixed(2) + " KB";
   fileInfo.textContent = `${file.name} (${sizeStr})`;
+  btnBurn.style.display = "block";
+  progressBarContainer.style.display = "none";
   const ext = file.name.split(".").pop().toLowerCase();
   try {
     if (ext === "hex") {
@@ -145,6 +156,8 @@ btnBurn.onclick = async () => {
     document.getElementById("btn-burn-text").textContent = "取消下载";
     btnBurn.disabled = false;
     port = await navigator.serial.requestPort();
+    // 选择串口后显示进度条
+    progressBarContainer.style.display = "block";
     const baudrate = parseInt(document.getElementById("baudrate").value);
     await port.open({ baudRate: baudrate });
     uartisp = new UARTISP();
@@ -235,6 +248,7 @@ btnBurn.onclick = async () => {
   document
     .getElementById("custom-file-btn")
     .classList.remove("opacity-50", "cursor-not-allowed");
+  progressBarContainer.style.display = "none";
 };
 
 // 保证页面加载时按钮状态正确
