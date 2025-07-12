@@ -1,6 +1,4 @@
 import UARTISP, { hexToBin } from "./uart_isp.js";
-// import USBDFU from "./usb_dfu.js";
-import STLink from "./stlink.js";
 
 // // Web Serial API 支持性检查
 // if (!("serial" in navigator)) {
