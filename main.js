@@ -2,13 +2,13 @@ import UARTISP, { hexToBin } from "./uart_isp.js";
 import WebStlink from "./webstlink/src/webstlink.js";
 import { Logger } from "./webstlink/src/lib/package.js";
 
-// // Web Serial API 支持性检查
-// if (!("serial" in navigator)) {
-//   alert(
-//     "暂不支持当前浏览器，请使用 Chrome、Microsoft Edge、Arc 等基于 Chromium 的浏览器。"
-//   );
-//   throw new Error("Web Serial API not supported");
-// }
+// Web Serial API 支持性检查
+if (!("serial" in navigator)) {
+  alert(
+    "暂不支持当前浏览器，请使用 Chrome、Microsoft Edge、Arc 等基于 Chromium 的浏览器。"
+  );
+  throw new Error("Web Serial API not supported");
+}
 
 let port = null;
 let uartisp = null;
