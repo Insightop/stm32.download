@@ -170,6 +170,12 @@ btnBurn.onclick = async () => {
       await stlink.flash(firmwareBaseAddr, new Uint8Array(firmwareBuffer));
       setProgress(100);
       log("🎉 STLINK固件烧录完成！");
+      try {
+        await stlink.reset(false); // 自动复位MCU
+        log("♻️ 已自动复位MCU");
+      } catch (e) {
+        log("⚠️ 自动复位失败: " + (e && e.message ? e.message : e));
+      }
       await stlink.detach();
       log("⛓️‍💥 STLINK已断开");
     } catch (e) {
