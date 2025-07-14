@@ -1,4 +1,6 @@
 import UARTISP, { hexToBin } from "./uart_isp.js";
+import WebStlink from "./webstlink/src/webstlink.js";
+import { Logger } from "./webstlink/src/lib/package.js";
 
 // // Web Serial API 支持性检查
 // if (!("serial" in navigator)) {
@@ -135,34 +137,59 @@ btnBurn.onclick = async () => {
   // 新增：根据模式分支
   if (mode === "STLINK") {
     try {
-      console.log("即将调用navigator.usb.requestDevice");
       log("🔌 正在连接STLINK设备...");
-      const stlink = new STLink();
-      await stlink.connect();
-      log("✅ STLINK已连接: " + stlink.device.productName);
+      // 选择 STLINK 设备，带过滤器
+      const device = await navigator.usb.requestDevice({
+        filters:
+          Logger && Logger.usb && Logger.usb.filters
+            ? Logger.usb.filters
+            : [
+                { vendorId: 0x0483 }, // STMicroelectronics
+              ],
+      });
+      // 创建 logger 用于进度条
+      class UIProgressLogger extends Logger {
+        bargraph_start(msg, { value_min = 0, value_max = 100 } = {}) {
+          super.bargraph_start(msg, { value_min, value_max });
+          this._isWrite = msg === "Writing FLASH";
+          if (this._isWrite && firmwareBuffer) {
+            progressBarContainer.style.display = "block";
+            document.getElementById("progress-inner").style.width = "0%";
+          }
+        }
+        bargraph_update({ value = 0 } = {}) {
+          super.bargraph_update({ value });
+          if (this._isWrite && firmwareBuffer) {
+            const percent = Math.floor(
+              ((value - firmwareBaseAddr) / firmwareSize) * 100
+            );
+            setProgress(percent);
+          }
+        }
+        bargraph_done() {
+          super.bargraph_done();
+          if (this._isWrite && firmwareBuffer) {
+            setProgress(100);
+          }
+        }
+      }
+      const logger = new UIProgressLogger(1, null);
+      const stlink = new WebStlink(logger);
+      await stlink.attach(device);
+      await stlink.detect_cpu([], pick_sram_variant);
+      log("✅ STLINK已连接: " + device.productName);
       log("📝 开始通过STLINK写入固件...");
-      progressBarContainer.style.display = "block";
       setProgress(0);
       const stlinkrate =
         parseInt(document.getElementById("stlinkrate").value, 10) || 1800000;
-      await stlink.downloadBin(
-        firmwareBuffer,
-        firmwareBaseAddr,
-        (written, total) => {
-          setProgress(Math.floor((written / total) * 100));
-          const now = Date.now();
-          if (written === total) {
-            etaText.textContent = "00:00";
-          }
-        },
-        stlinkrate
-      );
+      // WebStlink.flash(addr, data) 支持 Uint8Array
+      await stlink.flash(firmwareBaseAddr, new Uint8Array(firmwareBuffer));
       setProgress(100);
       log("🎉 STLINK固件烧录完成！");
-      await stlink.disconnect();
+      await stlink.detach();
       log("⛓️‍💥 STLINK已断开");
     } catch (e) {
-      log("❌ STLINK烧录失败: " + e.message);
+      log("❌ STLINK烧录失败: " + (e && e.message ? e.message : e));
     }
     isBurning = false;
     isCancelRequested = false;
@@ -340,3 +367,76 @@ function updateModeOptions() {
 modeRadios.forEach((r) => r.addEventListener("change", updateModeOptions));
 // 页面加载时初始化
 updateModeOptions();
+
+// MCU选型弹窗逻辑，参考webstlink demo
+async function pick_sram_variant(mcu_list) {
+  const dialog = document.getElementById("mcuDialog");
+  const tbody = dialog.querySelector("tbody");
+  // 清空旧内容
+  while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+  const columns = [
+    ["type", ""],
+    ["freq", "MHz"],
+    ["flash_size", "KiB"],
+    ["sram_size", "KiB"],
+    ["eeprom_size", "KiB"],
+  ];
+  mcu_list.forEach((mcu, idx) => {
+    const tr = document.createElement("tr");
+    tr.className =
+      idx % 2 === 0
+        ? "bg-white hover:bg-blue-50 cursor-pointer"
+        : "bg-blue-50 hover:bg-blue-100 cursor-pointer";
+    for (const [key, suffix] of columns) {
+      const td = document.createElement("td");
+      td.className = "px-3 py-2 border-b";
+      if (key === "type") {
+        const label = document.createElement("label");
+        label.className = "flex items-center gap-2 select-none";
+        const input = document.createElement("input");
+        input.type = "radio";
+        input.name = "mcuIndex";
+        input.value = mcu.type;
+        input.required = true;
+        input.className = "w-5 h-5 accent-blue-600";
+        label.appendChild(input);
+        label.appendChild(document.createTextNode(mcu[key] + suffix));
+        td.appendChild(label);
+      } else {
+        td.textContent = mcu[key] + suffix;
+      }
+      tr.appendChild(td);
+    }
+    // 点击整行选中radio
+    tr.addEventListener("click", (e) => {
+      const radio = tr.querySelector('input[type="radio"]');
+      if (radio) radio.checked = true;
+    });
+    tbody.appendChild(tr);
+  });
+  // 处理提交/取消
+  const form = document.getElementById("mcuForm");
+  let submitHandler, cancelHandler;
+  const submitPromise = new Promise((resolve, reject) => {
+    submitHandler = (evt) => {
+      evt.preventDefault();
+      dialog.removeEventListener("close", cancelHandler);
+      const val = form.elements["mcuIndex"]?.value;
+      dialog.close();
+      resolve(val);
+    };
+    cancelHandler = () => {
+      form.removeEventListener("submit", submitHandler);
+      reject();
+    };
+    form.addEventListener("submit", submitHandler, { once: true });
+    dialog.addEventListener("close", cancelHandler, { once: true });
+  });
+  dialog.showModal();
+  try {
+    const type = await submitPromise;
+    return type;
+  } catch {
+    return null;
+  }
+}
