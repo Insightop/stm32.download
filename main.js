@@ -15,11 +15,9 @@ let uartisp = null;
 let firmwareBuffer = null;
 let firmwareBaseAddr = 0x08000000;
 let firmwareSize = 0;
-let isConnected = false;
 let isBurning = false;
 let isCancelRequested = false;
 let burnStartTime = 0;
-let lastWritten = 0;
 let lastTime = 0;
 
 const logEl = document.getElementById("log");
@@ -46,20 +44,6 @@ function setProgress(percent) {
 }
 function resetProgress() {
   setProgress(0);
-}
-
-function setSerialBtnState(connected) {
-  if (connected) {
-    btnSerial.textContent = "⛓️‍💥断开";
-    btnSerial.classList.remove("bg-blue-600");
-    btnSerial.classList.add("bg-red-600");
-    btnBurn.disabled = false;
-  } else {
-    btnSerial.textContent = "🔗连接";
-    btnSerial.classList.remove("bg-red-600");
-    btnSerial.classList.add("bg-blue-600");
-    btnBurn.disabled = true;
-  }
 }
 
 function updateBurnBtnState() {
