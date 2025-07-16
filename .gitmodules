@@ -1,3 +1,6 @@
 [submodule "webstlink"]
 	path = webstlink
 	url = https://github.com/devanlai/webstlink/
+[submodule "webdfu"]
+	path = webdfu
+	url = https://github.com/devanlai/webdfu
